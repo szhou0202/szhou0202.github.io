@@ -5,3 +5,35 @@
 .center {
     text-align: center;
 }
+
+.header {
+    display: flex;  /* need this to prevent text div from floating left */
+    border: 2px solid black;  /* i need all three attributes for the border to show up as intended */
+    justify-content: space-between;  /* diff between space evenly and space between is one uses children as bars and one as stars */
+    padding: 10px;
+}
+
+.header-option {
+    float: left;
+    border: 2px solid blue;
+    /* padding: 10px; */
+}
+
+.body {
+    width: 60%;  /* would like to make it so that if user resizes the window super small then this becomes 100% */
+    margin-left: auto;
+    margin-right: auto;
+    /* background-color: aqua; */
+}
+
+.text {
+    border: 2px solid magenta;
+}
+
+.footer {
+    border: 2px solid green;
+}
+
+.ulist {
+    padding-left: 25px;
+}
