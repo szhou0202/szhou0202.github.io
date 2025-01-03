@@ -23,8 +23,9 @@
     width: 60%;  /* would like to make it so that if user resizes the window super small then this becomes 100% */
     margin-left: auto;
     margin-right: auto;
-    /* font-family: monospace; */
-    /* background-color: aqua; */
+    /* font-family: monospace;
+    color: white;
+    background-color: #1c0824; */
 }
 
 .text {
