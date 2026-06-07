@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timezone Wheels</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: Garamond, 'EB Garamond', 'Times New Roman', serif;
+            background-color: #f2f3f7;
+            color: #1e1e24;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            margin: 20px;
+        }
+        h2 { margin-top: 0; }
+        .controls {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+        }
+        .control-group label {
+            font-size: 13px;
+            color: #667;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        input {
+            font-family: inherit;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 2px solid #dde;
+            border-radius: 6px;
+            width: 200px;
+            background: #f7f8fb;
+            color: #1e1e24;
+            outline: none;
+        }
+        input:focus { border-color: #99a; }
+        input.invalid { border-color: #c0504d; }
+        .readout {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin: 6px 0 2px;
+            font-variant-numeric: tabular-nums;
+        }
+        .readout .time { font-size: 22px; font-weight: bold; }
+        .readout .city-name { font-size: 13px; color: #667; }
+        #diffText { color: #667; font-size: 14px; min-height: 18px; margin: 4px 0 0; }
+        svg {
+            margin-top: 6px;
+            max-width: 100%;
+            height: auto;
+        }
+        svg text {
+            font-family: inherit;
+            user-select: none;
+        }
+        .legend {
+            font-size: 12px;
+            color: #778;
+            margin-top: 4px;
+        }
+        .legend span { margin: 0 10px; }
+        .chip {
+            display: inline-block;
+            width: 9px; height: 9px;
+            border-radius: 2px;
+            margin-right: 4px;
+            vertical-align: baseline;
+        }
+        .chip.day { background: #fcfaf4; border: 1px solid #ccc; }
+        .chip.night { background: #1b2a6b; }
+        .legend-tri {
+            margin: 0;
+            vertical-align: -1px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Timezone Wheels</h2>
+    <div class="controls">
+        <div class="control-group">
+            <label for="cityA">Outer wheel &mdash; your city</label>
+            <input id="cityA" list="cityList" value="New York" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="control-group">
+            <label for="cityB">Inner wheel &mdash; their city</label>
+            <input id="cityB" list="cityList" value="Tokyo" autocomplete="off" spellcheck="false">
+        </div>
+    </div>
+    <datalist id="cityList"></datalist>
+
+    <div class="readout">
+        <div><div class="time" id="timeA">--:--</div><div class="city-name" id="nameA"></div></div>
+        <div><div class="time" id="timeB">--:--</div><div class="city-name" id="nameB"></div></div>
+    </div>
+    <div id="diffText"></div>
+
+    <svg id="wheelSvg" viewBox="0 0 640 640" width="640" height="640"></svg>
+    <div class="legend">
+        <span><span class="chip day"></span>Day (8AM&ndash;10PM)</span>
+        <span><span class="chip night"></span>Night (10PM&ndash;8AM)</span>
+        <span><svg class="legend-tri" width="11" height="11" viewBox="0 0 14 14"><path d="M 7 13 Q 4.73 6.86 0 2 Q 7 3.28 14 2 Q 9.27 6.86 7 13 Z" fill="#778"/></svg> = now</span>
+    </div>
+</div>
+
+<script>
+// ---- City -> IANA timezone database ----
+const CITIES = {
+    "New York": "America/New_York", "Los Angeles": "America/Los_Angeles",
+    "Chicago": "America/Chicago", "Houston": "America/Chicago",
+    "Denver": "America/Denver", "Phoenix": "America/Phoenix",
+    "Seattle": "America/Los_Angeles", "San Francisco": "America/Los_Angeles",
+    "Boston": "America/New_York", "Miami": "America/New_York",
+    "Atlanta": "America/New_York", "Washington DC": "America/New_York",
+    "Anchorage": "America/Anchorage", "Honolulu": "Pacific/Honolulu",
+    "Toronto": "America/Toronto", "Vancouver": "America/Vancouver",
+    "Montreal": "America/Toronto", "Mexico City": "America/Mexico_City",
+    "Havana": "America/Havana", "Bogota": "America/Bogota",
+    "Lima": "America/Lima", "Caracas": "America/Caracas",
+    "Santiago": "America/Santiago", "Buenos Aires": "America/Argentina/Buenos_Aires",
+    "Sao Paulo": "America/Sao_Paulo", "Rio de Janeiro": "America/Sao_Paulo",
+    "London": "Europe/London", "Dublin": "Europe/Dublin",
+    "Lisbon": "Europe/Lisbon", "Madrid": "Europe/Madrid",
+    "Barcelona": "Europe/Madrid", "Paris": "Europe/Paris",
+    "Amsterdam": "Europe/Amsterdam", "Brussels": "Europe/Brussels",
+    "Berlin": "Europe/Berlin", "Munich": "Europe/Berlin",
+    "Zurich": "Europe/Zurich", "Geneva": "Europe/Zurich",
+    "Rome": "Europe/Rome", "Milan": "Europe/Rome",
+    "Vienna": "Europe/Vienna", "Prague": "Europe/Prague",
+    "Warsaw": "Europe/Warsaw", "Budapest": "Europe/Budapest",
+    "Stockholm": "Europe/Stockholm", "Oslo": "Europe/Oslo",
+    "Copenhagen": "Europe/Copenhagen", "Helsinki": "Europe/Helsinki",
+    "Athens": "Europe/Athens", "Istanbul": "Europe/Istanbul",
+    "Kyiv": "Europe/Kyiv", "Moscow": "Europe/Moscow",
+    "Reykjavik": "Atlantic/Reykjavik", "Cairo": "Africa/Cairo",
+    "Casablanca": "Africa/Casablanca", "Lagos": "Africa/Lagos",
+    "Accra": "Africa/Accra", "Nairobi": "Africa/Nairobi",
+    "Addis Ababa": "Africa/Addis_Ababa", "Johannesburg": "Africa/Johannesburg",
+    "Cape Town": "Africa/Johannesburg", "Tel Aviv": "Asia/Jerusalem",
+    "Jerusalem": "Asia/Jerusalem", "Beirut": "Asia/Beirut",
+    "Riyadh": "Asia/Riyadh", "Dubai": "Asia/Dubai",
+    "Abu Dhabi": "Asia/Dubai", "Doha": "Asia/Qatar",
+    "Tehran": "Asia/Tehran", "Baghdad": "Asia/Baghdad",
+    "Karachi": "Asia/Karachi", "Islamabad": "Asia/Karachi",
+    "Mumbai": "Asia/Kolkata", "Delhi": "Asia/Kolkata",
+    "Bangalore": "Asia/Kolkata", "Chennai": "Asia/Kolkata",
+    "Kolkata": "Asia/Kolkata", "Kathmandu": "Asia/Kathmandu",
+    "Dhaka": "Asia/Dhaka", "Colombo": "Asia/Colombo",
+    "Yangon": "Asia/Yangon", "Bangkok": "Asia/Bangkok",
+    "Hanoi": "Asia/Bangkok", "Ho Chi Minh City": "Asia/Ho_Chi_Minh",
+    "Jakarta": "Asia/Jakarta", "Singapore": "Asia/Singapore",
+    "Kuala Lumpur": "Asia/Kuala_Lumpur", "Manila": "Asia/Manila",
+    "Hong Kong": "Asia/Hong_Kong", "Taipei": "Asia/Taipei",
+    "Beijing": "Asia/Shanghai", "Shanghai": "Asia/Shanghai",
+    "Shenzhen": "Asia/Shanghai", "Seoul": "Asia/Seoul",
+    "Tokyo": "Asia/Tokyo", "Osaka": "Asia/Tokyo",
+    "Perth": "Australia/Perth", "Adelaide": "Australia/Adelaide",
+    "Brisbane": "Australia/Brisbane", "Sydney": "Australia/Sydney",
+    "Melbourne": "Australia/Melbourne", "Auckland": "Pacific/Auckland",
+    "Wellington": "Pacific/Auckland", "Fiji": "Pacific/Fiji",
+};
+
+// Populate the autocomplete datalist
+const datalist = document.getElementById('cityList');
+Object.keys(CITIES).sort().forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    datalist.appendChild(opt);
+});
+
+// Case-insensitive lookup; returns {name, tz} or null
+function findCity(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
+    for (const [name, tz] of Object.entries(CITIES)) {
+        if (name.toLowerCase() === q) return { name, tz };
+    }
+    return null;
+}
+
+// UTC offset of a timezone in minutes at the given instant (DST-aware)
+function getOffsetMinutes(tz, date) {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    const p = {};
+    for (const part of dtf.formatToParts(date)) p[part.type] = part.value;
+    const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
+    return Math.round((asUTC - date.getTime()) / 60000);
+}
+
+// ---- SVG setup (vector: crisp at any DPI / zoom) ----
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('wheelSvg');
+const CX = 320, CY = 320;
+
+const NAVY = '#1b2a6b';
+const WHITE = '#fcfaf4';
+const OUTER_RING = { rOut: 285, rIn: 215 };
+const INNER_RING = { rOut: 205, rIn: 135 };
+
+const isNight = h => h >= 22 || h < 8;   // night: 10PM-8AM
+
+function el(name, attrs, parent) {
+    const node = document.createElementNS(SVGNS, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    if (parent) parent.appendChild(node);
+    return node;
+}
+
+// Point at radius r, angleDeg measured clockwise from the top
+function polar(r, angleDeg) {
+    const rad = (angleDeg - 90) * Math.PI / 180;
+    return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)];
+}
+
+// Annular wedge path between two radii and two angles
+function sectorPath(rOut, rIn, deg0, deg1) {
+    const [x0, y0] = polar(rOut, deg0), [x1, y1] = polar(rOut, deg1);
+    const [x2, y2] = polar(rIn, deg1), [x3, y3] = polar(rIn, deg0);
+    return `M ${x0} ${y0} A ${rOut} ${rOut} 0 0 1 ${x1} ${y1} ` +
+           `L ${x2} ${y2} A ${rIn} ${rIn} 0 0 0 ${x3} ${y3} Z`;
+}
+
+// Dawn/dusk sectors blend between night and day across the hour
+const TRANSITIONS = { 7: [NAVY, WHITE], 22: [WHITE, NAVY] };
+
+// Build a 24-sector wheel as a rotatable <g>
+function buildWheel(ring, idPrefix) {
+    const g = el('g', {}, svg);
+    const defs = el('defs', {}, g);
+    const labelR = (ring.rOut + ring.rIn) / 2;
+    const fontSize = Math.round((ring.rOut - ring.rIn) * 0.30);
+
+    for (let h = 0; h < 24; h++) {
+        const d0 = h * 15, d1 = d0 + 15;
+
+        let fill = isNight(h) ? NAVY : WHITE;
+        if (TRANSITIONS[h]) {
+            // Linear gradient across the sector's arc, from its start edge to its end edge
+            const [c0, c1] = TRANSITIONS[h];
+            const [gx0, gy0] = polar(labelR, d0);
+            const [gx1, gy1] = polar(labelR, d1);
+            const gradId = `${idPrefix}-grad-${h}`;
+            const grad = el('linearGradient', {
+                id: gradId, gradientUnits: 'userSpaceOnUse',
+                x1: gx0, y1: gy0, x2: gx1, y2: gy1,
+            }, defs);
+            el('stop', { offset: '0%', 'stop-color': c0 }, grad);
+            el('stop', { offset: '100%', 'stop-color': c1 }, grad);
+            fill = `url(#${gradId})`;
+        }
+
+        el('path', {
+            d: sectorPath(ring.rOut, ring.rIn, d0, d1),
+            fill,
+            stroke: 'rgba(30,30,36,0.25)',
+            'stroke-width': 1.5,
+        }, g);
+
+        // Hour label, centered in the sector, rotated to read outward
+        const dm = d0 + 7.5;
+        const [x, y] = polar(labelR, dm);
+        const text = el('text', {
+            x, y,
+            transform: `rotate(${dm} ${x} ${y})`,
+            fill: isNight(h) ? WHITE : NAVY,
+            'font-size': fontSize,
+            'font-weight': 'bold',
+            'text-anchor': 'middle',
+            'dominant-baseline': 'central',
+        }, g);
+        text.textContent = h;
+    }
+
+    return g;
+}
+
+const wheelA = buildWheel(OUTER_RING, 'outer');
+const wheelB = buildWheel(INNER_RING, 'inner');
+
+// Center hub (drawn after the wheels so it sits on top)
+el('circle', { cx: CX, cy: CY, r: INNER_RING.rIn - 8, fill: '#f2f3f7' }, svg);
+const hubBig = el('text', {
+    x: CX, y: CY - 10, fill: '#1e1e24',
+    'font-size': 34, 'font-weight': 'bold',
+    'text-anchor': 'middle', 'dominant-baseline': 'central',
+}, svg);
+const hubSmall = el('text', {
+    x: CX, y: CY + 22, fill: '#778',
+    'font-size': 14,
+    'text-anchor': 'middle', 'dominant-baseline': 'central',
+}, svg);
+
+// Fixed marker at the top: both wheels rotate so "now" sits under it
+// Triangle with sides that bow slightly inward toward its centroid
+const tip = [CX, CY - OUTER_RING.rOut - 6];
+const left = [CX - 7, CY - OUTER_RING.rOut - 20];
+const right = [CX + 7, CY - OUTER_RING.rOut - 20];
+const centroid = [(tip[0] + left[0] + right[0]) / 3, (tip[1] + left[1] + right[1]) / 3];
+function bow(p, q, k = 0.35) {
+    const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+    return [mx + (centroid[0] - mx) * k, my + (centroid[1] - my) * k];
+}
+el('path', {
+    d: `M ${tip} Q ${bow(tip, left)} ${left} Q ${bow(left, right)} ${right} Q ${bow(right, tip)} ${tip} Z`,
+    fill: '#778',
+}, svg);
+
+// ---- State ----
+// Restore the last city pair from localStorage, falling back to defaults
+const STORAGE_KEY = 'tz-wheels-cities';
+let saved = {};
+try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) {}
+
+let cityA = findCity(saved.a || '') || findCity('New York');
+let cityB = findCity(saved.b || '') || findCity('Tokyo');
+// Current animated rotations (degrees) and whether they've been initialized
+let rotA = null, rotB = null;
+
+const inputA = document.getElementById('cityA');
+const inputB = document.getElementById('cityB');
+inputA.value = cityA.name;
+inputB.value = cityB.name;
+
+function saveCities() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ a: cityA.name, b: cityB.name }));
+    } catch (e) {}
+}
+
+function handleInput(input, setCity) {
+    const match = findCity(input.value);
+    input.classList.toggle('invalid', !match && input.value.trim() !== '');
+    if (match) { setCity(match); saveCities(); }
+}
+inputA.addEventListener('input', () => handleInput(inputA, c => cityA = c));
+inputB.addEventListener('input', () => handleInput(inputB, c => cityB = c));
+
+// ---- Readouts ----
+const fmtCache = {};
+function formatTime(tz, date) {
+    fmtCache[tz] ??= new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true
+    });
+    return fmtCache[tz].format(date);
+}
+
+function updateHub(diffMinutes) {
+    const hours = Math.abs(diffMinutes) / 60;
+    const hoursLabel = Number.isInteger(hours) ? hours : hours.toFixed(1);
+    if (diffMinutes === 0) {
+        hubBig.textContent = '±0h';
+        hubSmall.textContent = 'same time';
+    } else {
+        hubBig.textContent = (diffMinutes > 0 ? '+' : '−') + hoursLabel + 'h';
+        hubSmall.textContent = diffMinutes > 0 ? 'inner is ahead' : 'inner is behind';
+    }
+}
+
+function updateReadouts(now, diffMinutes) {
+    document.getElementById('timeA').textContent = formatTime(cityA.tz, now);
+    document.getElementById('timeB').textContent = formatTime(cityB.tz, now);
+    document.getElementById('nameA').textContent = cityA.name;
+    document.getElementById('nameB').textContent = cityB.name;
+
+    const diffEl = document.getElementById('diffText');
+    if (diffMinutes === 0) {
+        diffEl.textContent = `${cityB.name} and ${cityA.name} are on the same time.`;
+    } else {
+        const hours = Math.abs(diffMinutes) / 60;
+        const label = Number.isInteger(hours) ? hours : hours.toFixed(1);
+        const dir = diffMinutes > 0 ? 'ahead of' : 'behind';
+        diffEl.textContent = `${cityB.name} is ${label} hour${hours === 1 ? '' : 's'} ${dir} ${cityA.name}.`;
+    }
+}
+
+// ---- Animation loop ----
+// Shortest-path angular interpolation so the wheels always take the short way around
+function approach(current, target, factor) {
+    let delta = (target - current) % 360;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    return current + delta * factor;
+}
+
+function frame() {
+    const now = new Date();
+    const offA = getOffsetMinutes(cityA.tz, now);
+    const offB = getOffsetMinutes(cityB.tz, now);
+    const diffMinutes = offB - offA;
+
+    // Fractional local time of day in each city, in hours
+    const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
+    const localA = (utcHours + offA / 60 + 24) % 24;
+    const localB = (utcHours + offB / 60 + 24) % 24;
+
+    // Rotate each wheel so its current local time sits under the top needle
+    const targetA = -localA * 15;
+    const targetB = -localB * 15;
+
+    if (rotA === null) { rotA = targetA; rotB = targetB; } // snap on first frame
+    rotA = approach(rotA, targetA, 0.07);
+    rotB = approach(rotB, targetB, 0.07);
+
+    wheelA.setAttribute('transform', `rotate(${rotA} ${CX} ${CY})`);
+    wheelB.setAttribute('transform', `rotate(${rotB} ${CX} ${CY})`);
+    updateHub(diffMinutes);
+    updateReadouts(now, diffMinutes);
+
+    requestAnimationFrame(frame);
+}
+frame();
+</script>
+
+</body>
+</html>
