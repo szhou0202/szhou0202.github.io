@@ -22,6 +22,14 @@
         .container {
             text-align: center;
             margin: 20px;
+            animation: rise 0.7s ease-out both;
+        }
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .container { animation: none; }
         }
         h2 { margin-top: 0; }
         .controls {
@@ -402,6 +410,8 @@ function updateReadouts(now, diffMinutes) {
 }
 
 // ---- Animation loop ----
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // Shortest-path angular interpolation so the wheels always take the short way around
 function approach(current, target, factor) {
     let delta = (target - current) % 360;
@@ -425,7 +435,13 @@ function frame() {
     const targetA = -localA * 15;
     const targetB = -localB * 15;
 
-    if (rotA === null) { rotA = targetA; rotB = targetB; } // snap on first frame
+    if (rotA === null) {
+        if (REDUCED_MOTION) {
+            rotA = targetA; rotB = targetB;          // snap on first frame
+        } else {
+            rotA = targetA + 150; rotB = targetB - 150; // counter-spin into place on load
+        }
+    }
     rotA = approach(rotA, targetA, 0.07);
     rotB = approach(rotB, targetB, 0.07);
 
