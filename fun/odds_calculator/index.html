@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odds calculator</title>
+</head>
+<body>
+
+    <div>
+        <h1>
+            Arbitrage
+        </h1>
+        <p>
+            There is a zero-risk arbitrage opportunity when platforms are providing different odds on the same event. 
+        </p>
+        <h2>Platform A</h2>
+        <p>What percent of the time does Platform A think Team 1 is going to win?</p>
+        <input id="oddsA" type="number" min="0" max="100" step="any"> %
+        <h2>Platform B</h2>
+        <p>What percent of the time does Platform B think Team 1 is going to win?</p>
+        <input id="oddsB" type="number" min="0" max="100" step="any"> %
+
+        <h2>Result</h2>
+        <p>
+            If you put $10 on Team <span id="aTeam">[first team]</span> on Platform A,
+            you should put <span id="otherBetSize">[corresponding bet size]</span>
+            on Team <span id="bTeam">[second team]</span> on Platform B to make <span id="resultingMoney">[resulting money]</span>.
+            You should keep the ratio between your two bet sizes the same as what's given here to make a constant
+            amount of money regardless of the outcome.
+        </p>
+    </div>
+
+    <!-- 
+    <div>
+        <h1>
+            Betting
+        </h1>
+        <p>
+            When you have information on a bet resulting in different internal odds than an odds provider, 
+            you can place a positive EV bet representing your beliefs.
+        </p>
+        <h2>Your odds</h2>
+        <h3>Mean</h3>
+        <input type="number" step="any">
+        <h3>Variance</h3>
+        <input type="number" step="any">
+        <h2>Platform odds</h2>
+        <input type="number" step="any">
+
+    </div>
+    -->
+
+    <script>
+        // inputs
+        const oddsA = document.getElementById('oddsA');
+        const oddsB = document.getElementById('oddsB');
+
+        // outputs
+        const aTeam = document.getElementById('aTeam');
+        const bTeam = document.getElementById('bTeam');
+        const otherBet = document.getElementById('otherBetSize');
+        const result = document.getElementById('resultingMoney');
+
+        function clearResults() {
+            aTeam.textContent = "[first team]";
+            bTeam.textContent = "[first team]";
+            otherBet.textContent = "[corresponding bet size]";
+            result.textContent = "[resulting money]";
+        }
+
+        function calculateBets() {
+            let p = parseFloat(oddsA.value);
+            let q = parseFloat(oddsB.value);
+
+            // certainties and equal odds leave nothing to arbitrage
+            if (!(p > 0 && p < 100) || !(q > 0 && q < 100) || p === q) {
+                clearResults();
+                return;
+            }
+
+            // calculate
+            let a_team = "1";
+            let b_team = "2";
+
+            // platform A has to be the one pricing its team cheaper
+            if (p > q) {
+                p = 100-p;
+                q = 100-q;
+                a_team = "2";
+                b_team = "1";
+            }
+
+            p = p/100.;
+            q = q/100.;
+
+            // S_1 = S_2 \cdot \frac{p}{1-q}, where S_1 is the sizing on platform A
+            const S1 = 10;
+            const S2 = S1 * ((1-q)/p);
+            const money = S1 * (q-p)/p;
+
+            // setting results
+            aTeam.textContent = a_team;
+            bTeam.textContent = b_team;
+            otherBet.textContent = "$" + S2.toFixed(2);
+            result.textContent = "$" + money.toFixed(2);
+        }
+
+        oddsA.addEventListener('input', calculateBets);
+        oddsB.addEventListener('input', calculateBets);
+
+    </script>
+</body>
+</html>
