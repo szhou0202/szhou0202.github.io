@@ -1,0 +1,15 @@
+.body {
+    width: 60%; 
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.gray {
+    color: gray;
+}
+
+.title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 1em;
+}
